@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A little something for you</title>
+
+<!-- Fonts: Playfair Display (headings) + Inter (body) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+
+<!-- Tailwind (play CDN) + canvas-confetti -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+<style>
+  /* ---------- Theme tokens (swap with the toggle button) ---------- */
+  :root {
+    --bg1: #fbf3ea; --bg2: #f6dcd3; --bg3: #dfe8da;      /* cream → rose → sage */
+    --ink: #4a3b38; --muted: #8a7772; --accent: #b76e79; /* rose gold */
+    --glass: rgba(255,255,255,.45); --edge: rgba(255,255,255,.7);
+    --orb1: #f4b9b2; --orb2: #cfe0c8; --orb3: #f8e3b8;
+    --cake-a: #f2c4bd; --cake-b: #fff6ee; --cake-c: #d9a0a4;
+  }
+  :root[data-theme="dark"] {
+    --bg1: #121528; --bg2: #1d2040; --bg3: #2a2347;
+    --ink: #f3e7e2; --muted: #a9a0b8; --accent: #e8b4b8;
+    --glass: rgba(255,255,255,.07); --edge: rgba(255,255,255,.16);
+    --orb1: #6b5b95; --orb2: #3b5b8c; --orb3: #b76e79;
+    --cake-a: #d9a0a4; --cake-b: #f3e7e2; --cake-c: #b76e79;
+  }
+
+  html, body { height: 100%; }
+  body {
+    margin: 0; color: var(--ink); font-family: 'Inter', system-ui, sans-serif;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2) 55%, var(--bg3));
+    background-attachment: fixed; overflow: hidden;
+    transition: background .6s, color .6s;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    box-sizing: border-box;
+  }
+  .serif { font-family: 'Playfair Display', Georgia, serif; }
+
+  /* ---------- Background: glowing orbs + drifting specks ---------- */
+  .orb { position: fixed; border-radius: 9999px; filter: blur(70px); opacity: .55; animation: drift 18s ease-in-out infinite alternate; pointer-events: none; }
+  @keyframes drift { to { transform: translate(40px, -50px) scale(1.15); } }
+  .speck { position: fixed; bottom: -20px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0; pointer-events: none; animation: rise linear infinite; }
+  @keyframes rise { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .55; } 100% { transform: translateY(-110vh) translateX(30px); opacity: 0; } }
+
+  /* ---------- Glass surface ---------- */
+  .glass {
+    background: var(--glass); border: 1px solid var(--edge);
+    -webkit-backdrop-filter: blur(22px) saturate(140%); backdrop-filter: blur(22px) saturate(140%);
+    box-shadow: 0 30px 60px -25px rgba(120, 70, 70, .35), inset 0 1px 0 rgba(255,255,255,.4);
+  }
+
+  /* ---------- Stages: stacked, cross-faded ---------- */
+  .stage { position: absolute; inset: 0; display: flex; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch;
+           padding: clamp(4.5rem, 10vh, 5.5rem) 1rem 1.5rem; /* top gap keeps content clear of the corner buttons */
+           transition: opacity .8s ease, transform .9s cubic-bezier(.2,.8,.2,1), filter .8s ease; }
+  .stage > * { margin: auto; }   /* centers short content, lets tall content scroll instead of clipping */
+  .stage.hidden-stage { opacity: 0; transform: scale(.9) translateY(14px); filter: blur(10px); pointer-events: none; }
+
+  #card { cursor: pointer; transition: transform .35s ease, box-shadow .35s ease; animation: float 6s ease-in-out infinite; }
+  #card:hover { transform: translateY(-6px) rotate(-.6deg); }
+  #card:active { transform: scale(.97); }
+  #card.opening { animation: none; transform: scale(.6) rotate(6deg); opacity: 0; transition: all .7s cubic-bezier(.6,0,.4,1); }
+  @keyframes float { 50% { transform: translateY(-8px); } }
+
+  /* Cake */
+  #flame { transform-origin: 50% 100%; animation: flicker 1.2s ease-in-out infinite alternate; transition: opacity .4s, transform .4s; }
+  #flame.out { opacity: 0; transform: scale(.2); animation: none; }
+  @keyframes flicker { from { transform: scale(1) rotate(-3deg); } to { transform: scale(1.12, .94) rotate(3deg); } }
+  #cake { animation: bob 4s ease-in-out infinite; cursor: pointer; }
+  @keyframes bob { 50% { transform: translateY(-6px); } }
+  .btn { transition: transform .25s, background .25s, color .25s; }
+  /* Music button stays hidden until the card is opened */
+  #musicBtn { transition: opacity .6s ease, transform .25s, background .25s; }
+  #musicBtn:disabled { opacity: 0; pointer-events: none; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: scale(.95); }
+  .btn:focus-visible, #card:focus-visible, #cake:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+  /* Message lines fade in one after another */
+  .line { opacity: 0; transform: translateY(12px); transition: opacity .9s ease, transform .9s ease; }
+  #message.show .line { opacity: 1; transform: none; }
+  #message.show .line:nth-child(2) { transition-delay: .25s; }
+  #message.show .line:nth-child(3) { transition-delay: .5s; }
+  #message.show .line:nth-child(4) { transition-delay: .8s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+
+<body>
+  <!-- Ambient background -->
+  <div class="orb" style="width:340px;height:340px;top:-80px;left:-80px;background:var(--orb1)"></div>
+  <div class="orb" style="width:380px;height:380px;bottom:-120px;right:-100px;background:var(--orb2);animation-delay:-6s"></div>
+  <div class="orb" style="width:240px;height:240px;top:45%;left:55%;background:var(--orb3);animation-delay:-11s"></div>
+  <div id="specks"></div>
+
+  <!-- Corner controls -->
+  <div class="fixed top-4 right-4 z-20 flex gap-2" style="top:calc(1rem + env(safe-area-inset-top))">
+    <button id="themeBtn" class="btn glass w-11 h-11 rounded-full grid place-items-center text-lg" aria-label="Toggle light / midnight theme">🌙</button>
+    <button id="musicBtn" class="btn glass w-11 h-11 rounded-full grid place-items-center text-lg" aria-label="Toggle music" aria-pressed="false" disabled>🔇</button>
+  </div>
+
+  <main class="relative w-full h-full">
+
+    <!-- STAGE 1: the invitation card -->
+    <section id="s-card" class="stage">
+      <div id="card" class="glass rounded-[1.75rem] sm:rounded-[2rem] w-full max-w-sm p-6 py-12 sm:p-10 sm:py-14 text-center" role="button" tabindex="0" aria-label="Open your birthday card">
+        <div class="text-4xl mb-6">🎀</div>
+        <h1 class="serif text-2xl sm:text-3xl leading-snug">A special message<br>for you</h1>
+        <p class="mt-5 text-sm" style="color:var(--muted)">Tap to open</p>
+      </div>
+    </section>
+
+    <!-- STAGE 2: the cake -->
+    <section id="s-cake" class="stage hidden-stage">
+      <div class="text-center">
+        <svg id="cake" viewBox="0 0 240 240" class="w-52 sm:w-72 max-h-[45vh] mx-auto" role="button" tabindex="0" aria-label="Blow out the candle">
+          <ellipse cx="120" cy="214" rx="104" ry="12" fill="rgba(0,0,0,.12)"/>
+          <ellipse cx="120" cy="200" rx="100" ry="12" fill="var(--cake-b)" stroke="var(--edge)"/>
+          <!-- bottom tier -->
+          <path d="M30 150 v48 a90 12 0 0 0 180 0 v-48z" fill="var(--cake-a)"/>
+          <ellipse cx="120" cy="150" rx="90" ry="14" fill="var(--cake-b)"/>
+          <path d="M30 150 q10 22 20 0 q10 26 22 0 q10 20 22 0 q12 28 24 0 q12 22 24 0 q12 26 24 0 q10 18 20 0 v-2 h-156z" fill="var(--cake-b)"/>
+          <!-- top tier -->
+          <path d="M62 110 v40 a58 9 0 0 0 116 0 v-40z" fill="var(--cake-c)"/>
+          <ellipse cx="120" cy="110" rx="58" ry="10" fill="var(--cake-b)"/>
+          <path d="M62 110 q8 18 16 0 q8 22 18 0 q8 16 16 0 q9 22 18 0 q9 16 18 0 q8 18 14 0z" fill="var(--cake-b)"/>
+          <circle cx="90" cy="130" r="3.5" fill="var(--cake-b)"/><circle cx="120" cy="136" r="3.5" fill="var(--cake-b)"/><circle cx="150" cy="130" r="3.5" fill="var(--cake-b)"/>
+          <!-- candle -->
+          <rect x="114" y="62" width="12" height="46" rx="3" fill="var(--cake-b)" stroke="var(--accent)" stroke-width="1.5"/>
+          <path d="M114 74 l12 6 M114 86 l12 6 M114 98 l12 6" stroke="var(--accent)" stroke-width="2"/>
+          <g id="flame"><path d="M120 34 q-12 14 -6 24 a7 7 0 0 0 12 0 q6 -10 -6 -24z" fill="#f7c35f"/><path d="M120 46 q-5 7 -2 12 a3 3 0 0 0 4 0 q3 -5 -2 -12z" fill="#fff3d1"/></g>
+        </svg>
+        <p class="serif text-xl sm:text-2xl mt-6">Make a wish…</p>
+        <button id="blowBtn" class="btn glass rounded-full px-7 py-3 mt-5 text-sm font-medium">Blow out the candle</button>
+      </div>
+    </section>
+
+    <!-- STAGE 3: the message -->
+    <section id="s-msg" class="stage hidden-stage">
+      <div id="message" class="glass rounded-[1.75rem] sm:rounded-[2rem] w-full max-w-md sm:max-w-xl p-6 sm:p-10 text-center break-words">
+        <p class="line text-sm" style="color:var(--muted)">Today is all about you</p>
+        <h2 class="line serif leading-tight mt-3" style="font-size:clamp(1.9rem,7vw,3rem)">Happy Birthday,<br><span id="name" class="italic" style="color:var(--accent)"></span></h2>
+        <p id="text" class="line serif text-base sm:text-lg leading-relaxed mt-6 text-left" style="color:var(--ink);white-space:pre-line;overflow-wrap:anywhere"></p>
+        <p class="line mt-8 text-sm" style="color:var(--muted)">With love, <span id="from"></span></p>
+      </div>
+    </section>
+  </main>
+
+<script>
+/* =========================================================
+   CUSTOMIZE HERE — or share a link like  index.html?name=Maya&from=Alex
+   ========================================================= */
+const CONFIG = {
+  name: "Mamayie",
+  from: "Papajhun, Cj, Ian",
+  // Backticks (`) allow real line breaks. {name} is replaced automatically.
+  message: `Dear {name},
+
+Happy Birthday! Today is all about you, the best and most caring mom we have. We wrote this letter to show how much we love and appreciate you, as well as all the support and sacrifices you have made for us to become who we are today.
+
+I cannot fit every good thing you have done for us, so I’ll keep it short. You have done so much for us, being the fire that guides us whenever we are lost in our paths or scared to make a move. You are a flame that never stopped burning and continues to give us the warmth of your love. We are forever thankful that you have never stopped loving us, even during the times when we were really mad at you, screamed at you, or talked back at you. We are truly sorry for those bad times that hurt you. As we grow older, we hope to understand and appreciate even more the love and sacrifices you have made for us.
+
+Moving forward, we wish that you stay strong, healthy, and safe for many more years to come. We hope that the fire within you will continue to burn brightly and never fade. We promise that when we have a good life of our own, your love will be returned tenfold—we love you.`
+};
+const q = new URLSearchParams(location.search);
+CONFIG.name = q.get('name') || CONFIG.name;
+CONFIG.from = q.get('from') || CONFIG.from;
+
+const $ = id => document.getElementById(id);
+$('name').textContent = CONFIG.name;
+$('from').textContent = CONFIG.from;
+$('text').textContent = CONFIG.message.replaceAll('{name}', CONFIG.name).trim();
+document.title = `Happy Birthday, ${CONFIG.name}`;
+
+/* ---------- Floating specks ---------- */
+for (let i = 0; i < 18; i++) {
+  const s = document.createElement('span');
+  s.className = 'speck';
+  s.style.left = Math.random() * 100 + 'vw';
+  s.style.animationDuration = 12 + Math.random() * 14 + 's';
+  s.style.animationDelay = -Math.random() * 20 + 's';
+  s.style.transform = `scale(${0.6 + Math.random() * 1.2})`;
+  $('specks').appendChild(s);
+}
+
+/* ---------- Stage flow: card → cake → message ---------- */
+const stages = { card: $('s-card'), cake: $('s-cake'), msg: $('s-msg') };
+const show = key => Object.entries(stages).forEach(([k, el]) => el.classList.toggle('hidden-stage', k !== key));
+const colors = () => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
+  ? ['#e8b4b8', '#b76e79', '#f7d9a0', '#cfe0c8', '#ffffff'] : [];
+
+let opened = false;
+function openCard() {
+  if (opened) return; opened = true;
+  $('card').classList.add('opening');
+  $('musicBtn').disabled = false;
+  setMusic(true);   // Happy Birthday starts on the first tap; 🔊 button mutes it
+  confetti({ particleCount: 70, spread: 80, origin: { y: .6 }, colors: colors(), scalar: .9 });
+  setTimeout(() => show('cake'), 450);
+}
+$('card').addEventListener('click', openCard);
+$('card').addEventListener('keydown', e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openCard()));
+
+let blown = false;
+function blowOut() {
+  if (blown) return; blown = true;
+  $('flame').classList.add('out');
+  $('blowBtn').disabled = true; $('blowBtn').style.opacity = .5;
+  setTimeout(() => {
+    show('msg');
+    $('message').classList.add('show');
+    celebrate();
+  }, 700);
+}
+$('blowBtn').addEventListener('click', blowOut);
+$('cake').addEventListener('click', blowOut);
+$('cake').addEventListener('keydown', e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), blowOut()));
+
+/* ---------- Confetti explosion + gentle shower ---------- */
+function celebrate() {
+  const c = colors();
+  confetti({ particleCount: 160, spread: 110, startVelocity: 45, origin: { y: .65 }, colors: c });
+  // side cannons
+  [0, 1].forEach(side => confetti({ particleCount: 60, angle: side ? 120 : 60, spread: 60, origin: { x: side, y: .8 }, colors: c }));
+  // slow shower for ~6s
+  const end = Date.now() + 6000;
+  (function rain() {
+    confetti({ particleCount: 2, angle: 90, spread: 140, startVelocity: 8, gravity: .5, ticks: 400, scalar: .9,
+               origin: { x: Math.random(), y: -0.05 }, colors: c });
+    if (Date.now() < end) requestAnimationFrame(rain);
+  })();
+}
+
+/* ---------- Theme toggle ---------- */
+$('themeBtn').addEventListener('click', () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme !== 'dark';
+  root.dataset.theme = dark ? 'dark' : 'light';
+  $('themeBtn').textContent = dark ? '☀️' : '🌙';
+});
+
+/* ---------- Music: "Happy Birthday" played by a synthesized music box ---------- */
+// [frequency in Hz, length in beats] — melody in C major, 3/4 time
+const [G4,A4,B4,C5,D5,E5,F5,G5] = [392,440,493.88,523.25,587.33,659.25,698.46,783.99];
+const SONG = [
+  [G4,.75],[G4,.25],[A4,1],[G4,1],[C5,1],[B4,2],          // Happy birthday to you
+  [G4,.75],[G4,.25],[A4,1],[G4,1],[D5,1],[C5,2],          // Happy birthday to you
+  [G4,.75],[G4,.25],[G5,1],[E5,1],[C5,1],[B4,1],[A4,1],  // Happy birthday dear (name)
+  [F5,.75],[F5,.25],[E5,1],[C5,1],[D5,1],[C5,3]          // Happy birthday to you
+];
+const BEAT = 0.52;            // seconds per beat (raise for a slower tune)
+let ctx, playing = false, run = 0, timers = [];
+
+function ping(freq, dur) {
+  const t = ctx.currentTime, g = ctx.createGain();
+  // soft music-box tone: sine + quiet octave overtone
+  [[freq, .09], [freq * 2, .02]].forEach(([f, vol]) => {
+    const o = ctx.createOscillator(), og = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = f; og.gain.value = vol;
+    o.connect(og).connect(g); o.start(t); o.stop(t + dur + .6);
+  });
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(1, t + .015);
+  g.gain.exponentialRampToValueAtTime(.0001, t + dur + .5);
+  g.connect(ctx.destination);
+}
+
+function playSong(id) {
+  let at = 0;
+  SONG.forEach(([f, beats]) => {
+    timers.push(setTimeout(() => { if (playing && id === run) ping(f, beats * BEAT * .9); }, at * 1000));
+    at += beats * BEAT;
+  });
+  // pause, then loop
+  timers.push(setTimeout(() => { if (playing && id === run) playSong(id); }, (at + 2.5) * 1000));
+}
+
+function setMusic(on) {
+  playing = on;
+  $('musicBtn').textContent = on ? '🔊' : '🔇';
+  $('musicBtn').setAttribute('aria-pressed', on);
+  timers.forEach(clearTimeout); timers = [];
+  run++;
+  if (on) {
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+    ctx.resume();
+    playSong(run);
+  }
+}
+$('musicBtn').addEventListener('click', () => opened && setMusic(!playing));
+</script>
+</body>
+</html>
